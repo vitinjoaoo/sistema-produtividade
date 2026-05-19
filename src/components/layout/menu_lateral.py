@@ -14,10 +14,22 @@ def renderizar_sidebar():
             </div>
         """, unsafe_allow_html=True)
         
+        # --- DEFINIÇÃO DINÂMICA DE RÓTULO (RBAC - Controle de Acesso Baseado em Perfis) ---
+        # Recupera o perfil do usuário logado na sessão; o padrão assume 'Colaborador' por segurança
+        perfil_atual = st.session_state.get('usuario_perfil', 'Colaborador')
+        
+        if "Administrador" in perfil_atual:
+            rotulo_tarefas = "Delegação de Atividades"
+        else:
+            rotulo_tarefas = "Atividades"
+            
         # --- LINKS DE NAVEGAÇÃO INTERNA ---
         # Define os pontos de entrada para os diferentes módulos do sistema
         st.page_link("app.py", label="Dashboard", icon="📊")
-        st.page_link("pages/tarefas.py", label="Delegação de Atividades", icon="📝")
+        
+        # O label agora utiliza a variável dinâmica 'rotulo_tarefas' definida acima
+        st.page_link("pages/tarefas.py", label=rotulo_tarefas, icon="📝")
+        
         st.page_link("pages/registro.py", label="Registro Diário", icon="⏱️")
         st.page_link("pages/relatorios.py", label="Relatórios", icon="📈")
         st.page_link("pages/equipe.py", label="Equipe", icon="👥")
