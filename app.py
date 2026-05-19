@@ -14,7 +14,6 @@ from src.styles.custom_css import estilo
 from src.components.layout.menu_lateral import renderizar_sidebar
 
 # --- CONFIGURAÇÃO DO SERVIDOR DE E-MAIL (Comunicação Externa) ---
-# Esta parte configura a integração com o servidor SMTP do Google para envio de e-mails.
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
 EMAIL_REMETENTE = "vitinjoao257@gmail.com"
@@ -22,12 +21,10 @@ EMAIL_PASSWORD = "iovp rkql wsef yhgs"
 
 # --- FUNÇÕES DE SUPORTE (Lógica de Segurança) ---
 def gerar_senha_aleatoria(tamanho=6):
-    """Gera uma credencial temporária para o fluxo de recuperação."""
     caracteres = string.ascii_uppercase + string.digits
     return ''.join(random.choice(caracteres) for _ in range(tamanho))
 
 def enviar_email_real(email_destino, nova_senha):
-    """Integra o sistema com o protocolo SMTP para notificações externas."""
     msg = EmailMessage()
     msg.set_content(f"Sua nova senha temporária é: {nova_senha}")
     msg['Subject'] = '🔑 Redefinição de Senha - Sistema de Gestão de Demandas'
@@ -43,12 +40,9 @@ def enviar_email_real(email_destino, nova_senha):
         return False
 
 # --- FUNÇÕES DE PERSISTÊNCIA (Integração com Banco de Dados SQL) ---
-# Esta seção gerencia toda a camada de dados (Model) do sistema usando SQLite3.
 def criar_tabelas_sistema():
-    """Define a arquitetura do banco de dados e garante a integridade das tabelas."""
     conn = sqlite3.connect('produtividade.db')
     c = conn.cursor()
-    # Criação das tabelas de Entidades (Usuários) e Fatos (Tarefas, Jornada)
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios 
                  (username TEXT PRIMARY KEY, password TEXT, nome TEXT, perfil TEXT, email TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS tarefas 
@@ -62,7 +56,6 @@ def criar_tabelas_sistema():
     c.execute('''CREATE TABLE IF NOT EXISTS configuracoes_metas 
                  (perfil TEXT PRIMARY KEY, valor_meta INTEGER)''')
     
-    # Seed: População inicial de metas parametrizáveis
     c.execute("SELECT COUNT(*) FROM configuracoes_metas")
     if c.fetchone()[0] == 0:
         metas_iniciais = [
@@ -71,7 +64,6 @@ def criar_tabelas_sistema():
         ]
         c.executemany("INSERT INTO configuracoes_metas VALUES (?, ?)", metas_iniciais)
 
-    # Manutenção evolutiva do esquema do banco (Migrações)
     try: c.execute("ALTER TABLE tarefas ADD COLUMN data_atribuicao TEXT")
     except: pass
     try: c.execute("ALTER TABLE tarefas ADD COLUMN data_esperada TEXT")
@@ -80,14 +72,12 @@ def criar_tabelas_sistema():
     conn.close()
 
 def buscar_metas_db():
-    """Recupera as metas vigentes para alimentar a lógica de BI (Business Intelligence)."""
     conn = sqlite3.connect('produtividade.db')
     df = pd.read_sql_query("SELECT * FROM configuracoes_metas", conn)
     conn.close()
     return dict(zip(df['perfil'], df['valor_meta']))
 
 def atualizar_meta_db(perfil, novo_valor):
-    """Permite ao administrador alterar as regras de negócio em tempo real."""
     conn = sqlite3.connect('produtividade.db')
     c = conn.cursor()
     c.execute("UPDATE configuracoes_metas SET valor_meta = ? WHERE perfil = ?", (novo_valor, perfil))
@@ -95,7 +85,6 @@ def atualizar_meta_db(perfil, novo_valor):
     conn.close()
 
 def redefinir_senha_banco(email, nova_senha):
-    """Atualiza as credenciais no banco utilizando Hashing SHA-256 para segurança."""
     conn = sqlite3.connect('produtividade.db')
     c = conn.cursor()
     senha_hash = hashlib.sha256(nova_senha.encode()).hexdigest()
@@ -106,7 +95,6 @@ def redefinir_senha_banco(email, nova_senha):
     return sucesso
 
 def verificar_login(username, password):
-    """Valida o acesso comparando o hash da senha informada com o banco."""
     conn = sqlite3.connect('produtividade.db')
     c = conn.cursor()
     senha_hash = hashlib.sha256(password.encode()).hexdigest()
@@ -116,7 +104,6 @@ def verificar_login(username, password):
     return user
 
 def cadastrar_usuario(username, password, nome, perfil, email):
-    """Insere um novo nó de usuário na rede do sistema."""
     try:
         conn = sqlite3.connect('produtividade.db')
         c = conn.cursor()
@@ -134,14 +121,13 @@ st.set_page_config(page_title="Painel de Produtividade", layout="wide")
 criar_tabelas_sistema()
 
 def main():
-    # Controle de Estado da Sessão (Session State)
+    # Inicializa ou valida o estado de autenticação
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
 
     # --- FLUXO 1: MÓDULO DE AUTENTICAÇÃO (TELA INICIAL) ---
-    # Esta parte faz aparecer a tela de login, cadastro e recuperação.
     if not st.session_state['autenticado']:
-        estilo() # Injeção de CSS personalizado
+        estilo() 
         st.markdown("<div style='text-align: center; padding: 20px;'>", unsafe_allow_html=True)
         st.title("⚖️ Sistema de Gestão de Demandas")
         st.caption("Controle de produtividade e monitoramento de metas")
@@ -151,7 +137,6 @@ def main():
         with col_l:
             tab_login, tab_cadastro = st.tabs(["Login", "Criar Conta"])
             
-            # Sub-fluxo de Recuperação (Integração com E-mail)
             with tab_login:
                 if st.session_state.get('recuperando'):
                     email_rec = st.text_input("E-mail Institucional")
@@ -166,20 +151,17 @@ def main():
                             else: st.error("E-mail não localizado.")
                     if st.button("Voltar"): st.session_state['recuperando'] = False; st.rerun()
                 
-                # Interface de Entrada de Dados
                 else:
                     with st.form("form_login"):
                         u = st.text_input("Usuário"); p = st.text_input("Senha", type="password")
                         if st.form_submit_button("Entrar", use_container_width=True):
                             valido = verificar_login(u, p)
                             if valido:
-                                # Persistência de dados do usuário logado na sessão ativa
                                 st.session_state.update({'autenticado': True, 'username_logado': valido[0], 'usuario_nome': valido[1], 'usuario_perfil': valido[2]})
                                 st.rerun()
                             else: st.error("Credenciais inválidas.")
                     st.button("Recuperar minha senha", on_click=lambda: st.session_state.update({"recuperando": True}), type="secondary")
             
-            # Módulo de Cadastro de novos usuários
             with tab_cadastro:
                 with st.form("form_cadastro"):
                     n_nome = st.text_input("Nome Completo"); n_email = st.text_input("E-mail Institucional")
@@ -191,12 +173,10 @@ def main():
                         else: st.error("Erro: Usuário já existe.")
 
     # --- FLUXO 2: DASHBOARD E MONITORAMENTO (ÁREA RESTRITA) ---
-    # Esta parte faz aparecer a tela principal de BI e os gráficos.
     else:
         estilo() 
         renderizar_sidebar()
 
-        # Data Wrangling: Carregamento e preparação dos dados para os gráficos
         conn = sqlite3.connect('produtividade.db')
         df_tarefas = pd.read_sql_query("SELECT * FROM tarefas", conn)
         df_usuarios = pd.read_sql_query("SELECT nome, perfil FROM usuarios", conn)
@@ -207,11 +187,9 @@ def main():
         metas_ref = buscar_metas_db()
         data_hoje = date.today()
         
-        # Filtro de Visibilidade por Nível de Acesso (Administrador vs Servidor)
         is_admin = "Administrador" in perfil
         df_view = df_tarefas if is_admin else df_tarefas[df_tarefas['usuario_id'] == nome_user]
 
-        # Lógica de Auditoria Temporal (Verifica atrasos automaticamente)
         if not df_tarefas.empty:
             def definir_situacao(row):
                 if row['status'] == 'CONCLUÍDO': return 'Concluída'
@@ -224,7 +202,6 @@ def main():
         st.title("📊 Monitoramento de Demandas")
         st.markdown(f"Bem-vindo, **{nome_user}**.")
 
-        # Módulo Administrativo: Parametrização de Metas
         if is_admin:
             with st.expander("⚙️ Configurações Administrativas"):
                 st.write("Ajuste as metas de pontuação do sistema:")
@@ -237,8 +214,6 @@ def main():
                             if st.button(f"Salvar Meta {i}", key=f"btn_{i}"):
                                 atualizar_meta_db(perfil_meta, novo_v); st.rerun()
 
-        # --- CARDS DE KPIS (Indicadores Chave de Desempenho) ---
-        # Esta parte renderiza os cards coloridos no topo do dashboard.
         pts_c = df_view[df_view['status'] == 'CONCLUÍDO']['pontos'].sum() if not df_view.empty else 0
         pts_p = df_view[df_view['status'] == 'PENDENTE']['pontos'].sum() if not df_view.empty else 0
         
@@ -258,8 +233,6 @@ def main():
 
         st.write("---")
 
-        # --- MÓDULO DE BI (Gráficos Analíticos) ---
-        # Esta seção integra Plotly Express para visualização dinâmica dos dados.
         if not df_tarefas.empty:
             col_g1, col_g2 = st.columns(2)
             with col_g1:
