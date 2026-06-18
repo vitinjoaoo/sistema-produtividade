@@ -26,13 +26,13 @@ def gerar_pdf(df, usuario, total_pts, meta_valor):
     
     user_name = str(usuario).encode('ascii', 'ignore').decode('ascii')
     pdf.cell(190, 10, f"Responsavel: {user_name}", ln=True)
-    pdf.cell(190, 10, f"Meta Institucional: {meta_valor} pontos", ln=True)
+    pdf.cell(190, 10, f"Meta Institutional: {meta_valor} pontos", ln=True)
     pdf.cell(190, 10, f"Total alcancado: {total_pts} pontos", ln=True)
     pdf.ln(10)
     
     pdf.set_font("Arial", "B", 8)
     pdf.set_fill_color(200, 220, 255) 
-    pdf.cell(35, 10, "Conclusao", border=1, fill=True) # Nova coluna de data no PDF
+    pdf.cell(35, 10, "Conclusao", border=1, fill=True) 
     pdf.cell(35, 10, "Num. Processo", border=1, fill=True)
     pdf.cell(55, 10, "Atividade", border=1, fill=True)
     pdf.cell(15, 10, "Pts", border=1, fill=True)
@@ -41,7 +41,6 @@ def gerar_pdf(df, usuario, total_pts, meta_valor):
     
     pdf.set_font("Arial", "", 7)
     for index, row in df.iterrows():
-        # Formatação das strings para o PDF
         data_text = str(row['Conclusão']).encode('latin-1', 'ignore').decode('latin-1')
         proc_text = str(row['Nº Processo']).encode('latin-1', 'ignore').decode('latin-1')
         ativid_text = str(row['Atividade'])[:30].encode('latin-1', 'ignore').decode('latin-1')
@@ -54,7 +53,12 @@ def gerar_pdf(df, usuario, total_pts, meta_valor):
         pdf.cell(50, 8, obs_text, border=1)
         pdf.ln()
         
-    return pdf.output(dest='S').encode('latin-1', errors='replace')
+    # --- CORREÇÃO DO ERRO AQUI ---
+    # Extrai o buffer de bytes brutos de forma segura independente da versão da biblioteca
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        return pdf_output.encode('latin-1', errors='replace')
+    return bytes(pdf_output)
 
 def renderizar_pagina_relatorios():
     if 'usuario_nome' not in st.session_state:
@@ -80,11 +84,9 @@ def renderizar_pagina_relatorios():
         df_base = pd.read_sql_query(f"SELECT * FROM tarefas WHERE status = 'CONCLUÍDO' AND usuario_id = '{usuario_atual}'", conn)
     conn.close()
 
-    # --- MOTOR DE FILTRAGEM (Data Analytics) ---
     with st.expander("🔍 Filtros de Auditoria e Seleção Temporal", expanded=True):
         c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
         with c1:
-            # FORMATO DE DATA
             data_inicio = st.date_input("Início do Período", value=date(2026, 1, 1), format="DD/MM/YYYY")
         with c2:
             data_fim = st.date_input("Fim do Período", value=date.today(), format="DD/MM/YYYY")
@@ -147,7 +149,6 @@ def renderizar_pagina_relatorios():
 
     with tab_detalhes:
         if not df_filtrado.empty:
-            # FORMATANDO DATA PARA EXIBIÇÃO NA TABELA (DD/MM/YYYY)
             df_filtrado['data_formatada'] = pd.to_datetime(df_filtrado['data_conclusao']).dt.strftime('%d/%m/%Y')
             
             df_exibicao = df_filtrado[['data_formatada', 'num_processo', 'titulo', 'pontos', 'usuario_id', 'observacao']].copy()
@@ -156,7 +157,6 @@ def renderizar_pagina_relatorios():
             st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
             
             col_exp1, col_exp2 = st.columns(2)
-            # DATA PARA O NOME DO ARQUIVO
             data_hoje_br = date.today().strftime('%d-%m-%Y')
             
             with col_exp1:
